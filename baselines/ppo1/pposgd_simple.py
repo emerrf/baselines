@@ -78,7 +78,8 @@ def add_vtarg_and_adv(seg, gamma, lam):
     seg["tdlamret"] = seg["adv"] + seg["vpred"]
 
 def learn(env, policy_fn, *,
-        timesteps_per_actorbatch, # timesteps per actor per update
+        policy_snapshot_filepath, snapshot_every, snapshot_filepath,  # Snapshots
+        timesteps_per_batch, # timesteps per actor per update
         clip_param, entcoeff, # clipping parameter epsilon, entropy coeff
         optim_epochs, optim_stepsize, optim_batchsize,# optimization hypers
         gamma, lam, # advantage estimation
@@ -130,7 +131,7 @@ def learn(env, policy_fn, *,
 
     # Prepare for rollouts
     # ----------------------------------------
-    seg_gen = traj_segment_generator(pi, env, timesteps_per_actorbatch, stochastic=True)
+    seg_gen = traj_segment_generator(pi, env, timesteps_per_batch, stochastic=True)
 
     episodes_so_far = 0
     timesteps_so_far = 0
@@ -140,6 +141,11 @@ def learn(env, policy_fn, *,
     rewbuffer = deque(maxlen=100) # rolling buffer for episode rewards
 
     assert sum([max_iters>0, max_timesteps>0, max_episodes>0, max_seconds>0])==1, "Only one time constraint permitted"
+
+    if policy_snapshot_filepath and tf.train.checkpoint_exists(policy_snapshot_filepath):
+        saver = tf.train.Saver()
+        saver.restore(tf.get_default_session(), policy_snapshot_filepath)
+        logger.info("Tensorflow Session restored from {}".format(policy_snapshot_filepath))
 
     while True:
         if callback: callback(locals(), globals())
@@ -202,6 +208,8 @@ def learn(env, policy_fn, *,
         rewbuffer.extend(rews)
         logger.record_tabular("EpLenMean", np.mean(lenbuffer))
         logger.record_tabular("EpRewMean", np.mean(rewbuffer))
+        logger.record_tabular("EpLenMax", np.max(lenbuffer))
+        logger.record_tabular("EpRewMax", np.max(rewbuffer))
         logger.record_tabular("EpThisIter", len(lens))
         episodes_so_far += len(lens)
         timesteps_so_far += sum(lens)
@@ -211,6 +219,14 @@ def learn(env, policy_fn, *,
         logger.record_tabular("TimeElapsed", time.time() - tstart)
         if MPI.COMM_WORLD.Get_rank()==0:
             logger.dump_tabular()
+
+            if (snapshot_filepath
+                    and snapshot_every > 0
+                    and (iters_so_far % snapshot_every == 0)
+                    or (0 < max_iters <= iters_so_far)):
+                saver = tf.train.Saver()
+                saver.save(tf.get_default_session(),
+                           snapshot_filepath+'_%0.4i' % iters_so_far)
 
 def flatten_lists(listoflists):
     return [el for list_ in listoflists for el in list_]

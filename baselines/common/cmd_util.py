@@ -62,3 +62,38 @@ def mujoco_arg_parser():
     parser.add_argument('--seed', help='RNG seed', type=int, default=0)
     parser.add_argument('--num-timesteps', type=int, default=int(1e6))
     return parser
+
+def env_arg_parser():
+    """
+    Create an argparse.ArgumentParser for run_env_mpi.py.
+    """
+
+    parser = arg_parser()
+    parser.add_argument('--env', help='environment ID', type=str, default="CartPole-v1")
+    parser.add_argument('--seed', help='RNG seed', type=int, default=0)
+    parser.add_argument('--max-timesteps', type=int, default=int(2048*8*10))
+    parser.add_argument('--snapshot-every', type=int, default=int(1))
+    parser.add_argument('--snapshot-filepath', type=str, default=None)
+    # TRPO and PPO common settings
+    parser.add_argument('--timesteps-per-batch', type=int, default=int(2048))
+    parser.add_argument('--gamma', type=float, default=0.99)
+    parser.add_argument('--lam', type=float, default=0.95)
+    # TRPO specific
+    parser.add_argument('--max-kl', type=float, default=0.01)
+    parser.add_argument('--cg-iters', type=int, default=10)
+    parser.add_argument('--cg-damping', type=float, default=0.1)
+    parser.add_argument('--vf-iters', type=int, default=5)
+    parser.add_argument('--vf-stepsize', type=float, default=1e-3)
+    # PPO specific
+    parser.add_argument('--schedule', type=str, default='linear')
+    parser.add_argument('--clip-param', type=float, default=0.2)
+    parser.add_argument('--entcoeff', type=float, default=0.0)
+    parser.add_argument('--optim-epochs', type=int, default=10)
+    parser.add_argument('--optim-stepsize', type=float, default=3e-4)
+    parser.add_argument('--optim-batchsize', type=int, default=64)
+    # Policy settings
+    parser.add_argument('--policy-hid-size', type=int, default=64)
+    parser.add_argument('--policy-num-hid-layers', type=int, default=2)
+    parser.add_argument('--policy-snapshot-filepath', type=str, default=None)
+
+    return parser
